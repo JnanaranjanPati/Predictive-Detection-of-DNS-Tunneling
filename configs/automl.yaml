@@ -1,0 +1,7 @@
+tpot:
+  generations: 5
+  population_size: 20
+  cv: 5
+  verbosity: 2
+  scoring: "f1_macro"
+  random_state: 42

@@ -1,0 +1,9 @@
+scaling:
+  method: "standard"
+outlier_detection:
+  method: "isolation_forest"
+  contamination: 0.05
+  random_state: 42
+imbalance:
+  method: "smote"
+  random_state: 42

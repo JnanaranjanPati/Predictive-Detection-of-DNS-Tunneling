@@ -1,0 +1,4 @@
+C: 1.0
+kernel: "rbf"
+probability: true
+random_state: 42

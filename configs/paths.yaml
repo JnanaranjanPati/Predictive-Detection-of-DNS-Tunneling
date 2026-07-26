@@ -1,0 +1,17 @@
+# configs/paths.yaml
+data:
+  raw: "data/raw"
+  interim: "data/interim"
+  processed: "data/processed"
+  sample: "data/sample"
+models:
+  traditional: "models/traditional"
+  deep_learning: "models/deep_learning"
+  automl: "models/automl"
+results:
+  metrics: "results/metrics/experiment_log.csv"
+  eda: "results/eda"
+  shap: "results/shap"
+configs:
+  base: "configs"
+  selected_features: "configs/selected_features.json"

@@ -1,0 +1,10 @@
+epochs: 30
+batch_size: 256
+learning_rate: 0.001
+layers:
+  - units: 64
+    activation: "relu"
+    dropout: 0.3
+  - units: 32
+    activation: "relu"
+    dropout: 0.3

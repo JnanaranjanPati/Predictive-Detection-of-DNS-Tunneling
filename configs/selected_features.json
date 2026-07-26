@@ -1,0 +1,27 @@
+{
+    "features": [
+        "duration",
+        "min_packets_len",
+        "ttl_values_mode",
+        "max_packets_len",
+        "distinct_A_records",
+        "src_port",
+        "variance_packets_len",
+        "conv_freq_vowels_consonants",
+        "total_bytes",
+        "mean_packets_len",
+        "dns_domain_name_length",
+        "ttl_values_min",
+        "character_entropy",
+        "ttl_values_mean",
+        "ttl_values_max",
+        "numerical_percentage",
+        "coefficient_of_variation_packets_len",
+        "packets_len_rate",
+        "ttl_values_median",
+        "packets_rate",
+        "sending_bytes",
+        "dns_subdomain_name_length",
+        "standard_deviation_packets_len"
+    ]
+}

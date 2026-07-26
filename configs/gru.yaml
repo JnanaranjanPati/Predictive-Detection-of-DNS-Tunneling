@@ -1,0 +1,6 @@
+epochs: 30
+batch_size: 256
+learning_rate: 0.001
+units: 64
+activation: "tanh"
+dropout: 0.3
