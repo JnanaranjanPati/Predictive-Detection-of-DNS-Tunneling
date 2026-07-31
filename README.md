@@ -551,13 +551,29 @@ Models with curves closer to the upper-left corner demonstrate superior discrimi
 
 ## Confusion Matrix Analysis
 
-Confusion matrices provide a detailed breakdown of classification outcomes by reporting correctly and incorrectly classified samples. This analysis helps identify the types of prediction errors produced by each model.
+Confusion matrices provide a detailed breakdown of classification outcomes by reporting correctly and incorrectly classified samples. This analysis helps identify the strengths and weaknesses of each model beyond aggregate performance metrics.
 
-<p align="center">
-<img src="assets/results/confusion_matrices.png" width="95%">
-</p>
+<br>
 
-A high number of true positives and true negatives, combined with low false positives and false negatives, indicates a reliable detection model. Since cybersecurity applications require minimizing missed attacks while avoiding excessive false alarms, confusion matrix analysis provides important practical insight beyond aggregate performance metrics.
+| **Decision Tree** | **Random Forest** |
+|:-----------------:|:-----------------:|
+| <img src="results/confusion_matrices/decision_tree_best_confusion_matrix.png" width="100%"> | <img src="results/confusion_matrices/random_forest_best_confusion_matrix.png" width="100%"> |
+
+| **XGBoost** | **Support Vector Machine (SVM)** |
+|:-----------:|:--------------------------------:|
+| <img src="results/confusion_matrices/xgboost_best_confusion_matrix.png" width="100%"> | <img src="results/confusion_matrices/svm_best_confusion_matrix.png" width="100%"> |
+
+| **Dense Neural Network (DNN)** | **Long Short-Term Memory (LSTM)** |
+|:------------------------------:|:---------------------------------:|
+| <img src="results/confusion_matrices/dense_nn_best_confusion_matrix.png" width="100%"> | <img src="results/confusion_matrices/lstm_best_confusion_matrix.png" width="100%"> |
+
+| **Gated Recurrent Unit (GRU)** | **TPOT AutoML** |
+|:------------------------------:|:---------------:|
+| <img src="results/confusion_matrices/gru_best_confusion_matrix.png" width="100%"> | <img src="results/confusion_matrices/tpot_pipeline_confusion_matrix.png" width="100%"> |
+
+<br>
+
+Overall, the confusion matrices reveal the distribution of true positives, true negatives, false positives, and false negatives for each evaluated model. Models exhibiting fewer misclassifications demonstrate stronger discriminative capability for distinguishing benign DNS traffic from malicious tunneling activity, providing a more comprehensive assessment than aggregate metrics alone.
 
 
 ## Computational Performance
