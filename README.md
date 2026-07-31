@@ -533,7 +533,7 @@ Using multiple evaluation metrics provides a more reliable assessment than relyi
 The comparative evaluation demonstrates the predictive performance of every implemented model under identical experimental conditions.
 
 <p align="center">
-<img src="assets/results/model_comparison.png" width="95%">
+<img src="results/metrics/comparison/robust_metrics_comparison.png" width="95%">
 </p>
 
 The results indicate clear differences in predictive capability across traditional machine learning, deep learning, and AutoML approaches. While several models achieve competitive performance, the comparative framework highlights the trade-offs between predictive accuracy, robustness, and computational complexity. These observations provide valuable guidance for selecting an appropriate model depending on the deployment requirements.
@@ -543,7 +543,7 @@ The results indicate clear differences in predictive capability across tradition
 Receiver Operating Characteristic (ROC) analysis evaluates the discriminative capability of each model across different classification thresholds. Unlike a single accuracy value, ROC curves illustrate the trade-off between the True Positive Rate and False Positive Rate, providing a more comprehensive assessment of classifier performance.
 
 <p align="center">
-<img src="assets/results/roc_curves.png" width="90%">
+<img src="results/roc_curves/combined_roc_curve.png" width="90%">
 </p>
 
 Models with curves closer to the upper-left corner demonstrate superior discriminative ability. The corresponding Area Under the Curve (ROC-AUC) values further quantify each model's capability to distinguish benign DNS traffic from tunneling attacks.
@@ -565,10 +565,17 @@ A high number of true positives and true negatives, combined with low false posi
 Predictive performance alone is insufficient when evaluating models intended for practical deployment. Computational efficiency, including training time, inference latency, and resource requirements, also plays a critical role in selecting an appropriate detection model.
 
 <p align="center">
-<img src="assets/results/performance_efficiency.png" width="90%">
+<img src="results/metrics/comparison/model_footprint_and_latency.png" width="90%">
 </p>
 
 The comparative analysis illustrates the trade-off between predictive accuracy and computational cost. Simpler models generally provide faster execution, whereas more sophisticated architectures may achieve higher predictive performance at the expense of increased computational requirements. This comparison enables practitioners to select models that best satisfy their operational constraints.
+
+
+## Efficiency vs Performance Analysis
+
+<p align="center">
+<img src="results/metrics/comparison/efficiency_vs_performance.png" width="90%">
+</p>
 
 
 ## Discussion
