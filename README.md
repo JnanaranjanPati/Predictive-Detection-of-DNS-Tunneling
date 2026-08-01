@@ -320,7 +320,7 @@ Feature selection plays a critical role in improving the efficiency and predicti
 To address these challenges, the proposed framework employs a hybrid feature selection strategy that combines **Mutual Information (MI)** and **Random Forest Feature Importance**. By integrating both statistical dependency analysis and model-based feature evaluation, the framework identifies a compact subset of highly informative features while preserving the behavioural characteristics essential for DNS tunneling detection.
 
 <p align="center">
-    <img src="assets/feature_selection/feature_selection_pipeline.png" alt="Feature Selection Pipeline" width="90%">
+    <img src="assets/feature_selection/feature selectionpipeline .png" alt="Feature Selection Pipeline" width="90%">
 </p>
 
 The selected feature subset serves as the common input for every machine learning model evaluated in this study, ensuring consistency and fairness throughout the experimental process.
