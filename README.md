@@ -469,7 +469,7 @@ Every model uses:
 - The same evaluation metrics.
 
 <p align="center">
-    <img src="assets/models/model_architecture_comparison.png" alt="Model Comparison Framework" width="95%">
+    <img src="assets/models/models.png" alt="Model Comparison Framework" width="95%">
 </p>
 
 Maintaining a consistent experimental environment ensures that observed performance differences arise from the learning algorithms themselves rather than variations in data preparation or evaluation methodology. This design enables a transparent and reproducible comparison across traditional machine learning, deep learning, and AutoML approaches.
