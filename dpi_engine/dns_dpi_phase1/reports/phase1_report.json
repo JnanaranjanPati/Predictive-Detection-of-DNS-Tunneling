@@ -1,0 +1,76 @@
+{
+  "total_packets": 8,
+  "protocol_counts": {
+    "DNS": 2,
+    "HTTP": 2,
+    "HTTPS/TLS": 2,
+    "SSH": 2
+  },
+  "total_flows": 4,
+  "flows": [
+    {
+      "source": "192.168.1.10:53000",
+      "destination": "8.8.8.8:53",
+      "ip_protocol": 17,
+      "application_protocol": "DNS",
+      "packets": 2,
+      "bytes": 169,
+      "forward_packets": 1,
+      "reverse_packets": 1,
+      "forward_bytes": 71,
+      "reverse_bytes": 98,
+      "duration": 0.001046895980834961,
+      "packets_per_second": 1910.4094739239354,
+      "min_packet_length": 71,
+      "max_packet_length": 98
+    },
+    {
+      "source": "192.168.1.10:52000",
+      "destination": "93.184.216.34:80",
+      "ip_protocol": 6,
+      "application_protocol": "HTTP",
+      "packets": 2,
+      "bytes": 188,
+      "forward_packets": 1,
+      "reverse_packets": 1,
+      "forward_bytes": 91,
+      "reverse_bytes": 97,
+      "duration": 0.0,
+      "packets_per_second": 2.0,
+      "min_packet_length": 91,
+      "max_packet_length": 97
+    },
+    {
+      "source": "142.250.72.14:443",
+      "destination": "192.168.1.10:52001",
+      "ip_protocol": 6,
+      "application_protocol": "HTTPS/TLS",
+      "packets": 2,
+      "bytes": 155,
+      "forward_packets": 1,
+      "reverse_packets": 1,
+      "forward_bytes": 78,
+      "reverse_bytes": 77,
+      "duration": 0.001007080078125,
+      "packets_per_second": 1985.939393939394,
+      "min_packet_length": 77,
+      "max_packet_length": 78
+    },
+    {
+      "source": "192.168.1.10:52002",
+      "destination": "192.168.1.20:22",
+      "ip_protocol": 6,
+      "application_protocol": "SSH",
+      "packets": 2,
+      "bytes": 108,
+      "forward_packets": 1,
+      "reverse_packets": 1,
+      "forward_bytes": 54,
+      "reverse_bytes": 54,
+      "duration": 0.0,
+      "packets_per_second": 2.0,
+      "min_packet_length": 54,
+      "max_packet_length": 54
+    }
+  ]
+}
