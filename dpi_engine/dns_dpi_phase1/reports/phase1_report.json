@@ -19,8 +19,8 @@
       "reverse_packets": 1,
       "forward_bytes": 71,
       "reverse_bytes": 98,
-      "duration": 0.001046895980834961,
-      "packets_per_second": 1910.4094739239354,
+      "duration": 0.0,
+      "packets_per_second": 2.0,
       "min_packet_length": 71,
       "max_packet_length": 98
     },
@@ -35,8 +35,8 @@
       "reverse_packets": 1,
       "forward_bytes": 91,
       "reverse_bytes": 97,
-      "duration": 0.0,
-      "packets_per_second": 2.0,
+      "duration": 0.0055239200592041016,
+      "packets_per_second": 362.06172040226164,
       "min_packet_length": 91,
       "max_packet_length": 97
     },
@@ -51,8 +51,8 @@
       "reverse_packets": 1,
       "forward_bytes": 78,
       "reverse_bytes": 77,
-      "duration": 0.001007080078125,
-      "packets_per_second": 1985.939393939394,
+      "duration": 0.0,
+      "packets_per_second": 2.0,
       "min_packet_length": 77,
       "max_packet_length": 78
     },

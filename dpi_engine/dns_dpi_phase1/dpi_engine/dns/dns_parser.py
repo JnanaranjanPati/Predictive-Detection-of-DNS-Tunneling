@@ -51,10 +51,25 @@ class DNSParser:
             "answer_count": answer_count,
             "authority_count": authority_count,
             "additional_count": additional_count,
+
             "query_name": None,
             "query_type": None,
             "query_class": None,
+
             "answers": [],
+
+            # Numeric DNS RR type codes from the answer section.
+            #
+            # Example:
+            #   CNAME = 5
+            #   A     = 1
+            #
+            # Therefore:
+            #   [5, 5, 1, 1]
+            #
+            # This is required by the ALFlowLyzer-compatible
+            # distinct_A_records feature.
+            "answer_record_types": [],
         }
 
         offset = self.DNS_HEADER_SIZE
@@ -114,6 +129,19 @@ class DNSParser:
                 answer
             )
 
+            # Preserve the numeric RR type code.
+            #
+            # Example:
+            #   A     -> 1
+            #   CNAME -> 5
+            #
+            # This is intentionally separate from
+            # answer["type"], which remains the human-readable
+            # string used by the existing parser.
+            result["answer_record_types"].append(
+                answer["type_code"]
+            )
+
         return result
 
     def _read_answer(self, payload, offset):
@@ -162,7 +190,14 @@ class DNSParser:
 
         record = {
             "name": name,
+
+            # Existing human-readable representation.
             "type": self._record_type(record_type),
+
+            # New numeric representation required by the
+            # ALFlowLyzer-compatible feature extractor.
+            "type_code": record_type,
+
             "class": record_class,
             "ttl": ttl,
             "data": None,

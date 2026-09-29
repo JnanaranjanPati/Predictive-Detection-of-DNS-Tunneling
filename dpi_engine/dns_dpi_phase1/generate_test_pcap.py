@@ -22,7 +22,29 @@ def build_packets():
     client = "00:11:22:33:44:55"
     server = "66:77:88:99:aa:bb"
 
+    # ---------------------------------------------------------
+    # Base timestamp
+    # ---------------------------------------------------------
+    #
+    # Every packet gets an explicit timestamp.
+    #
+    # This is important because the DNS feature extractor uses
+    # query_timestamp and response_timestamp to calculate:
+    #
+    #     duration
+    #
+    # which then affects:
+    #
+    #     packets_rate
+    #     packets_len_rate
+    #
+    base_time = 1_790_591_945.000000
+
     packets = []
+
+    # =========================================================
+    # DNS
+    # =========================================================
 
     # DNS query
     dns_query = (
@@ -89,6 +111,10 @@ def build_packets():
         )
     )
 
+    # Explicit DNS timestamps.
+    dns_query.time = base_time
+    dns_response.time = base_time + 0.025
+
     packets.extend(
         [
             dns_query,
@@ -96,7 +122,10 @@ def build_packets():
         ]
     )
 
+    # =========================================================
     # HTTP
+    # =========================================================
+
     http_request = (
         Ether(
             src=client,
@@ -148,6 +177,10 @@ def build_packets():
         b"Hello"
     )
 
+    # Explicit HTTP timestamps.
+    http_request.time = base_time + 0.100
+    http_response.time = base_time + 0.125
+
     packets.extend(
         [
             http_request,
@@ -155,7 +188,10 @@ def build_packets():
         ]
     )
 
-    # HTTPS/TLS-like traffic
+    # =========================================================
+    # HTTPS / TLS-like traffic
+    # =========================================================
+
     tls_request = (
         Ether(
             src=client,
@@ -202,6 +238,10 @@ def build_packets():
         b"placeholder TLS response"
     )
 
+    # Explicit TLS timestamps.
+    tls_request.time = base_time + 0.200
+    tls_response.time = base_time + 0.225
+
     packets.extend(
         [
             tls_request,
@@ -209,7 +249,10 @@ def build_packets():
         ]
     )
 
+    # =========================================================
     # SSH
+    # =========================================================
+
     ssh_request = (
         Ether(
             src=client,
@@ -250,6 +293,10 @@ def build_packets():
             ack=101
         )
     )
+
+    # Explicit SSH timestamps.
+    ssh_request.time = base_time + 0.300
+    ssh_response.time = base_time + 0.325
 
     packets.extend(
         [
