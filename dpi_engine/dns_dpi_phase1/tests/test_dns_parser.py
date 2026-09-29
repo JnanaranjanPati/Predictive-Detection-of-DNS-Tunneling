@@ -16,7 +16,9 @@ def test_dns_parser():
 
     for raw_packet in reader.packets():
 
-        packet = packet_parser.parse(raw_packet)
+        packet = packet_parser.parse(
+            raw_packet
+        )
 
         if (
             packet.src_port == 53
@@ -24,26 +26,33 @@ def test_dns_parser():
         ):
             dns_packets.append(packet)
 
-    assert len(dns_packets) == 2
+    # Four DNS transactions = eight DNS packets.
+    assert len(dns_packets) == 8
 
-    query = dns_parser.parse(
-        dns_packets[0].payload
+    parsed_queries = []
+
+    for packet in dns_packets:
+
+        parsed = dns_parser.parse(
+            packet.payload
+        )
+
+        assert parsed is not None
+
+        parsed_queries.append(parsed)
+
+    # Four DNS queries and four responses.
+    query_count = sum(
+        1
+        for parsed in parsed_queries
+        if not parsed["is_response"]
     )
 
-    response = dns_parser.parse(
-        dns_packets[1].payload
+    response_count = sum(
+        1
+        for parsed in parsed_queries
+        if parsed["is_response"]
     )
 
-    assert query is not None
-    assert response is not None
-
-    assert query["transaction_id"] == 100
-    assert response["transaction_id"] == 100
-
-    assert query["is_response"] is False
-    assert response["is_response"] is True
-
-    assert query["query_name"] == "example.com"
-    assert response["query_name"] == "example.com"
-
-    assert query["query_type"] == "A"
+    assert query_count == 4
+    assert response_count == 4

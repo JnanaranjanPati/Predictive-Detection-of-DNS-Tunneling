@@ -24,15 +24,28 @@ def test_bidirectional_flow():
 
     flows = tracker.get_flows()
 
-    assert len(flows) == 4
+    # Current test PCAP:
+    #
+    # 4 DNS flows
+    # 1 HTTP flow
+    # 1 HTTPS/TLS flow
+    # 1 SSH flow
+    #
+    # Total = 7 flows.
+    assert len(flows) == 7
 
-    dns_flows = [
-        flow
-        for flow in flows
-        if flow.key.endpoint_a.port == 53
-        or flow.key.endpoint_b.port == 53
-    ]
+    # Every flow should contain packets in both directions.
+    for flow in flows:
 
-    assert len(dns_flows) == 1
+        assert flow.forward_packets > 0
+        assert flow.reverse_packets > 0
 
-    assert dns_flows[0].packets == 2
+        assert flow.packets == (
+            flow.forward_packets
+            + flow.reverse_packets
+        )
+
+        assert flow.bytes == (
+            flow.forward_bytes
+            + flow.reverse_bytes
+        )

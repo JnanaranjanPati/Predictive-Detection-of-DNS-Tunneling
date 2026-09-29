@@ -11,6 +11,13 @@ def test_pcap_reader():
         reader.packets()
     )
 
-    assert len(packets) == 8
+    assert len(packets) == 14
 
-    assert packets[0].captured_length > 0
+    # Verify timestamps are present and ordered.
+    assert packets[0].timestamp < packets[-1].timestamp
+
+    # Verify packet lengths are valid.
+    assert all(
+        packet.captured_length > 0
+        for packet in packets
+    )

@@ -46,8 +46,12 @@ def build_packets():
     # DNS
     # =========================================================
 
-    # DNS query
-    dns_query = (
+    # ---------------------------------------------------------
+    # DNS Transaction 1
+    # example.com
+    # ---------------------------------------------------------
+
+    dns_query_1 = (
         Ether(
             src=client,
             dst=server
@@ -74,8 +78,7 @@ def build_packets():
         )
     )
 
-    # DNS response
-    dns_response = (
+    dns_response_1 = (
         Ether(
             src=server,
             dst=client
@@ -111,14 +114,236 @@ def build_packets():
         )
     )
 
-    # Explicit DNS timestamps.
-    dns_query.time = base_time
-    dns_response.time = base_time + 0.025
+    dns_query_1.time = base_time
+    dns_response_1.time = base_time + 0.025
+
+    # ---------------------------------------------------------
+    # DNS Transaction 2
+    # google.com
+    # ---------------------------------------------------------
+
+    dns_query_2 = (
+        Ether(
+            src=client,
+            dst=server
+        )
+        /
+        IP(
+            src="192.168.1.10",
+            dst="8.8.8.8",
+            ttl=64
+        )
+        /
+        UDP(
+            sport=53001,
+            dport=53
+        )
+        /
+        DNS(
+            id=101,
+            rd=1,
+            qd=DNSQR(
+                qname="google.com",
+                qtype="A"
+            )
+        )
+    )
+
+    dns_response_2 = (
+        Ether(
+            src=server,
+            dst=client
+        )
+        /
+        IP(
+            src="8.8.8.8",
+            dst="192.168.1.10",
+            ttl=117
+        )
+        /
+        UDP(
+            sport=53,
+            dport=53001
+        )
+        /
+        DNS(
+            id=101,
+            qr=1,
+            aa=1,
+            rd=1,
+            ra=1,
+            qd=DNSQR(
+                qname="google.com",
+                qtype="A"
+            ),
+            an=DNSRR(
+                rrname="google.com",
+                type="A",
+                ttl=300,
+                rdata="142.250.72.14"
+            )
+        )
+    )
+
+    dns_query_2.time = base_time + 0.050
+    dns_response_2.time = base_time + 0.080
+
+    # ---------------------------------------------------------
+    # DNS Transaction 3
+    # openai.com
+    # ---------------------------------------------------------
+
+    dns_query_3 = (
+        Ether(
+            src=client,
+            dst=server
+        )
+        /
+        IP(
+            src="192.168.1.10",
+            dst="8.8.8.8",
+            ttl=64
+        )
+        /
+        UDP(
+            sport=53002,
+            dport=53
+        )
+        /
+        DNS(
+            id=102,
+            rd=1,
+            qd=DNSQR(
+                qname="openai.com",
+                qtype="A"
+            )
+        )
+    )
+
+    dns_response_3 = (
+        Ether(
+            src=server,
+            dst=client
+        )
+        /
+        IP(
+            src="8.8.8.8",
+            dst="192.168.1.10",
+            ttl=117
+        )
+        /
+        UDP(
+            sport=53,
+            dport=53002
+        )
+        /
+        DNS(
+            id=102,
+            qr=1,
+            aa=1,
+            rd=1,
+            ra=1,
+            qd=DNSQR(
+                qname="openai.com",
+                qtype="A"
+            ),
+            an=DNSRR(
+                rrname="openai.com",
+                type="A",
+                ttl=300,
+                rdata="104.18.33.45"
+            )
+        )
+    )
+
+    dns_query_3.time = base_time + 0.100
+    dns_response_3.time = base_time + 0.140
+
+    # ---------------------------------------------------------
+    # DNS Transaction 4
+    # www.github.com
+    # ---------------------------------------------------------
+
+    dns_query_4 = (
+        Ether(
+            src=client,
+            dst=server
+        )
+        /
+        IP(
+            src="192.168.1.10",
+            dst="8.8.8.8",
+            ttl=64
+        )
+        /
+        UDP(
+            sport=53003,
+            dport=53
+        )
+        /
+        DNS(
+            id=103,
+            rd=1,
+            qd=DNSQR(
+                qname="www.github.com",
+                qtype="A"
+            )
+        )
+    )
+
+    dns_response_4 = (
+        Ether(
+            src=server,
+            dst=client
+        )
+        /
+        IP(
+            src="8.8.8.8",
+            dst="192.168.1.10",
+            ttl=117
+        )
+        /
+        UDP(
+            sport=53,
+            dport=53003
+        )
+        /
+        DNS(
+            id=103,
+            qr=1,
+            aa=1,
+            rd=1,
+            ra=1,
+            qd=DNSQR(
+                qname="www.github.com",
+                qtype="A"
+            ),
+            an=DNSRR(
+                rrname="www.github.com",
+                type="A",
+                ttl=300,
+                rdata="140.82.112.4"
+            )
+        )
+    )
+
+    dns_query_4.time = base_time + 0.160
+    dns_response_4.time = base_time + 0.210
+
+    # ---------------------------------------------------------
+    # Add all DNS packets
+    # ---------------------------------------------------------
 
     packets.extend(
         [
-            dns_query,
-            dns_response
+            dns_query_1,
+            dns_response_1,
+            dns_query_2,
+            dns_response_2,
+            dns_query_3,
+            dns_response_3,
+            dns_query_4,
+            dns_response_4,
         ]
     )
 

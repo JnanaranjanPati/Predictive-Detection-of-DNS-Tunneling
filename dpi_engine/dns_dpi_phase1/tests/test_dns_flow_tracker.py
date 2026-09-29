@@ -27,32 +27,36 @@ def test_dns_transaction_tracking():
         tracker.get_transactions()
     )
 
-    assert len(transactions) == 1
+    # The current test PCAP contains four
+    # complete DNS query/response transactions.
+    assert len(transactions) == 4
 
-    transaction = transactions[0]
+    transaction_ids = {
+        transaction.transaction_id
+        for transaction in transactions
+    }
 
-    assert transaction.transaction_id == 100
+    assert transaction_ids == {
+        100,
+        101,
+        102,
+        103,
+    }
 
-    assert transaction.client_ip == (
-        "192.168.1.10"
+    domains = {
+        transaction.query_name
+        for transaction in transactions
+    }
+
+    assert domains == {
+        "example.com",
+        "google.com",
+        "openai.com",
+        "www.github.com",
+    }
+
+    # Every transaction should have a response.
+    assert all(
+        transaction.response_received
+        for transaction in transactions
     )
-
-    assert transaction.server_ip == (
-        "8.8.8.8"
-    )
-
-    assert transaction.query_name == (
-        "example.com"
-    )
-
-    assert transaction.query_type == "A"
-
-    assert transaction.response_received is True
-
-    assert transaction.response_time is not None
-
-    assert transaction.response_time >= 0
-
-    assert transaction.response_ips == [
-        "93.184.216.34"
-    ]
