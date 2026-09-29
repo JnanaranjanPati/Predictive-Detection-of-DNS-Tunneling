@@ -1,7 +1,10 @@
 import json
 from pathlib import Path
 
+from scapy.all import sniff
+
 from .core.pcap_reader import PcapReader
+from .core.packet_types import RawPacket
 from .core.packet_parser import PacketParser
 from .flow.flow_tracker import FlowTracker
 from .inspection.protocol_detector import ProtocolDetector
@@ -41,80 +44,326 @@ class DPIEngine:
 
         self.dns_detections = []
 
+    # =============================================================
+    # PCAP PROCESSING
+    # =============================================================
+
     def process_pcap(self, filename):
 
         reader = PcapReader(filename)
 
         for raw_packet in reader.packets():
 
-            self.total_packets += 1
+            self._process_raw_packet(raw_packet)
+
+    # =============================================================
+    # LIVE PACKET PROCESSING
+    # =============================================================
+
+    def process_live(
+        self,
+        interface=None,
+        count=0,
+        timeout=None,
+        packet_filter="udp port 53",
+    ):
+        """
+        Capture and process live packets using Scapy/Npcap.
+
+        Parameters:
+            interface:
+                Windows Npcap interface. If None, Scapy uses
+                its default interface.
+
+            count:
+                Number of packets to capture.
+                0 means unlimited until timeout/stop.
+
+            timeout:
+                Capture timeout in seconds.
+                None means no timeout.
+
+            packet_filter:
+                BPF filter. Default captures DNS over UDP/53.
+        """
+
+        print("Starting live DPI capture...")
+        print(f"Interface: {interface or 'Scapy default'}")
+        print(f"Filter: {packet_filter or 'None'}")
+
+        captured_count = 0
+        printed_detections = 0
+
+        def packet_callback(scapy_packet):
+
+            nonlocal captured_count
+            nonlocal printed_detections
 
             # -----------------------------------------------------
-            # Parse packet
+            # Convert Scapy packet to project RawPacket
             # -----------------------------------------------------
 
-            packet = self.parser.parse(
+            raw_packet = self._scapy_to_raw_packet(
+                scapy_packet
+            )
+
+            # -----------------------------------------------------
+            # Process through the existing DPI pipeline
+            # -----------------------------------------------------
+
+            self._process_raw_packet(
                 raw_packet
             )
 
+            captured_count += 1
+
             # -----------------------------------------------------
-            # Generic protocol detection
+            # Print only newly generated DNS ML detections
             # -----------------------------------------------------
 
-            protocol = self.detector.detect(
-                packet
-            )
+            if len(self.dns_detections) > printed_detections:
 
-            packet.application_protocol = protocol
-
-            if protocol:
-
-                self.protocol_counts[protocol] = (
-                    self.protocol_counts.get(protocol, 0) + 1
+                latest_detection = (
+                    self.dns_detections[-1]
                 )
 
-            # -----------------------------------------------------
-            # Existing generic flow tracking
-            # -----------------------------------------------------
+                self._print_live_detection(
+                    latest_detection
+                )
 
-            self.flow_tracker.process(
+                printed_detections = (
+                    len(self.dns_detections)
+                )
+
+        sniff(
+            iface=interface,
+            count=count,
+            timeout=timeout,
+            filter=packet_filter,
+            prn=packet_callback,
+            store=False,
+        )
+
+        # =========================================================
+        # LIVE CAPTURE SUMMARY
+        # =========================================================
+
+        print()
+        print("========== LIVE CAPTURE SUMMARY ==========")
+        print(
+            f"Captured packets: "
+            f"{captured_count}"
+        )
+
+        print(
+            f"Processed packets: "
+            f"{self.total_packets}"
+        )
+
+        print(
+            "DNS transactions: "
+            f"{len(self.dns_detections)}"
+        )
+
+        benign_count = sum(
+            1
+            for detection in self.dns_detections
+            if detection["prediction"] == 0
+        )
+
+        malicious_count = sum(
+            1
+            for detection in self.dns_detections
+            if detection["prediction"] == 1
+        )
+
+        print(
+            f"Benign: "
+            f"{benign_count}"
+        )
+
+        print(
+            f"Malicious: "
+            f"{malicious_count}"
+        )
+
+        print("==========================================")
+
+    # =============================================================
+    # COMMON PACKET PROCESSING
+    # =============================================================
+
+    def _process_raw_packet(self, raw_packet):
+
+        self.total_packets += 1
+
+        # ---------------------------------------------------------
+        # Parse packet
+        # ---------------------------------------------------------
+
+        packet = self.parser.parse(
+            raw_packet
+        )
+
+        if packet is None:
+            return
+
+        # ---------------------------------------------------------
+        # Generic protocol detection
+        # ---------------------------------------------------------
+
+        protocol = self.detector.detect(
+            packet
+        )
+
+        packet.application_protocol = protocol
+
+        if protocol:
+
+            self.protocol_counts[protocol] = (
+                self.protocol_counts.get(
+                    protocol,
+                    0
+                ) + 1
+            )
+
+        # ---------------------------------------------------------
+        # Existing generic flow tracking
+        # ---------------------------------------------------------
+
+        self.flow_tracker.process(
+            packet
+        )
+
+        # ---------------------------------------------------------
+        # DNS flow tracking
+        # ---------------------------------------------------------
+
+        transaction = (
+            self.dns_flow_tracker.process_packet(
                 packet
+            )
+        )
+
+        # ---------------------------------------------------------
+        # DNS ML inference
+        # ---------------------------------------------------------
+
+        if (
+            transaction is not None
+            and transaction.response_received
+        ):
+
+            prediction = (
+                self.dns_ml_pipeline.predict_transaction(
+                    transaction
+                )
             )
 
             # -----------------------------------------------------
-            # DNS flow tracking
+            # Store transaction metadata with prediction
             # -----------------------------------------------------
 
-            transaction = self.dns_flow_tracker.process_packet(
-                packet
+            prediction["transaction_id"] = (
+                transaction.transaction_id
             )
 
-            # -----------------------------------------------------
-            # DNS ML inference
-            # -----------------------------------------------------
-            #
-            # DNSFlowTracker returns:
-            #
-            #   - query transaction when query arrives
-            #   - completed transaction when response arrives
-            #
-            # Only run ML inference for completed transactions.
-            # -----------------------------------------------------
+            prediction["query_name"] = (
+                transaction.query_name
+            )
 
-            if (
-                transaction is not None
-                and transaction.response_received
-            ):
+            prediction["client_ip"] = (
+                transaction.client_ip
+            )
 
-                prediction = (
-                    self.dns_ml_pipeline.predict_transaction(
-                        transaction
-                    )
-                )
+            prediction["client_port"] = (
+                transaction.client_port
+            )
 
-                self.dns_detections.append(
-                    prediction
-                )
+            prediction["server_ip"] = (
+                transaction.server_ip
+            )
+
+            prediction["server_port"] = (
+                transaction.server_port
+            )
+
+            prediction["response_time"] = (
+                transaction.response_time
+            )
+
+            self.dns_detections.append(
+                prediction
+            )
+
+    # =============================================================
+    # SCAPY → RAW PACKET ADAPTER
+    # =============================================================
+
+    @staticmethod
+    def _scapy_to_raw_packet(
+        scapy_packet
+    ):
+        """
+        Convert a Scapy packet into the project's
+        existing RawPacket structure.
+        """
+
+        data = bytes(
+            scapy_packet
+        )
+
+        return RawPacket(
+            timestamp=float(
+                scapy_packet.time
+            ),
+            captured_length=len(data),
+            original_length=len(data),
+            data=data,
+        )
+
+    # =============================================================
+    # LIVE DETECTION OUTPUT
+    # =============================================================
+
+    @staticmethod
+    def _print_live_detection(
+        detection
+    ):
+
+        print()
+        print("========== DNS ML DETECTION ==========")
+
+        print(
+            f"Transaction ID: "
+            f"{detection.get('transaction_id')}"
+        )
+
+        print(
+            f"Query: "
+            f"{detection.get('query_name')}"
+        )
+
+        print(
+            f"Prediction: "
+            f"{detection.get('label')}"
+        )
+
+        print(
+            "Malicious probability: "
+            f"{detection.get('malicious_probability', 0.0):.4f}"
+        )
+
+        print(
+            f"Response time: "
+            f"{detection.get('response_time')}"
+        )
+
+        print("======================================")
+
+    # =============================================================
+    # REPORT
+    # =============================================================
 
     def report(self):
 
@@ -127,6 +376,7 @@ class DPIEngine:
         for flow in self.flow_tracker.get_flows():
 
             flows.append({
+
                 "source": (
                     f"{flow.key.endpoint_a.ip}:"
                     f"{flow.key.endpoint_a.port}"
@@ -235,6 +485,10 @@ class DPIEngine:
                 ),
             },
         }
+
+    # =============================================================
+    # SAVE REPORT
+    # =============================================================
 
     def save_report(self, filename):
 
