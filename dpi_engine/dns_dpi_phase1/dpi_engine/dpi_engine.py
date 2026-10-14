@@ -1,3 +1,4 @@
+
 import json
 from pathlib import Path
 
@@ -14,10 +15,19 @@ from .dns.dns_ml_pipeline import DNSMLPipeline
 
 class DPIEngine:
 
-    def __init__(self):
+    def __init__(self, max_detections=10000):
+
+        if (
+            not isinstance(max_detections, int)
+            or isinstance(max_detections, bool)
+            or max_detections <= 0
+        ):
+            raise ValueError(
+                "max_detections must be a positive integer"
+            )
 
         # =========================================================
-        # Existing DPI components
+        # DPI COMPONENTS
         # =========================================================
 
         self.parser = PacketParser()
@@ -25,24 +35,31 @@ class DPIEngine:
         self.flow_tracker = FlowTracker()
 
         # =========================================================
-        # DNS inspection + ML components
+        # DNS INSPECTION AND ML COMPONENTS
         # =========================================================
 
         self.dns_flow_tracker = DNSFlowTracker()
         self.dns_ml_pipeline = DNSMLPipeline()
 
         # =========================================================
-        # Existing statistics
+        # PACKET STATISTICS
         # =========================================================
 
         self.total_packets = 0
         self.protocol_counts = {}
 
         # =========================================================
-        # DNS ML detections
+        # BOUNDED DNS DETECTION HISTORY
         # =========================================================
 
+        self.max_detections = max_detections
         self.dns_detections = []
+
+        # Lifetime counters remain accurate even after old
+        # detection records are removed from retained history.
+        self.total_dns_predictions = 0
+        self.total_benign_predictions = 0
+        self.total_malicious_predictions = 0
 
     # =============================================================
     # PCAP PROCESSING
@@ -53,7 +70,6 @@ class DPIEngine:
         reader = PcapReader(filename)
 
         for raw_packet in reader.packets():
-
             self._process_raw_packet(raw_packet)
 
     # =============================================================
@@ -66,6 +82,7 @@ class DPIEngine:
         count=0,
         timeout=None,
         packet_filter="udp port 53",
+        report_filename="reports/live_dns_detection_report.json",
     ):
         """
         Capture and process live packets using Scapy/Npcap.
@@ -77,7 +94,7 @@ class DPIEngine:
 
             count:
                 Number of packets to capture.
-                0 means unlimited until timeout/stop.
+                0 means unlimited until timeout or interruption.
 
             timeout:
                 Capture timeout in seconds.
@@ -92,99 +109,105 @@ class DPIEngine:
         print(f"Filter: {packet_filter or 'None'}")
 
         captured_count = 0
-        printed_detections = 0
+        printed_predictions = self.total_dns_predictions
 
         def packet_callback(scapy_packet):
 
             nonlocal captured_count
-            nonlocal printed_detections
+            nonlocal printed_predictions
 
-            # -----------------------------------------------------
-            # Convert Scapy packet to project RawPacket
-            # -----------------------------------------------------
-
+            # Convert Scapy packet to the project's RawPacket.
             raw_packet = self._scapy_to_raw_packet(
                 scapy_packet
             )
 
-            # -----------------------------------------------------
-            # Process through the existing DPI pipeline
-            # -----------------------------------------------------
-
-            self._process_raw_packet(
-                raw_packet
-            )
+            # Process through the existing DPI pipeline.
+            self._process_raw_packet(raw_packet)
 
             captured_count += 1
 
-            # -----------------------------------------------------
-            # Print only newly generated DNS ML detections
-            # -----------------------------------------------------
+            # Print newly generated predictions.
+            # Use lifetime counters instead of retained list length,
+            # because old detections may be trimmed.
+            if self.total_dns_predictions > printed_predictions:
 
-            if len(self.dns_detections) > printed_detections:
-
-                latest_detection = (
-                    self.dns_detections[-1]
-                )
+                latest_detection = self.dns_detections[-1]
 
                 self._print_live_detection(
                     latest_detection
                 )
 
-                printed_detections = (
-                    len(self.dns_detections)
-                )
+                printed_predictions = self.total_dns_predictions
 
-        sniff(
-            iface=interface,
-            count=count,
-            timeout=timeout,
-            filter=packet_filter,
-            prn=packet_callback,
-            store=False,
-        )
+        interrupted = False
 
-        # =========================================================
-        # LIVE CAPTURE SUMMARY
-        # =========================================================
+        try:
+            sniff(
+                iface=interface,
+                count=count,
+                timeout=timeout,
+                filter=packet_filter,
+                prn=packet_callback,
+                store=False,
+            )
+
+        except KeyboardInterrupt:
+            interrupted = True
+            print("\nLive capture interrupted by user.")
+
+        finally:
+            self._print_live_summary(captured_count)
+        if report_filename:
+            try:
+                self.save_report(report_filename)
+                print(f"Final report saved to: {report_filename}")
+            except OSError as error:
+                print(f"Could not save final report: {error}")
+
+        if interrupted:
+            print("Capture stopped cleanly.")
+
+    def _print_live_summary(self, captured_count):
 
         print()
         print("========== LIVE CAPTURE SUMMARY ==========")
+
+        print(f"Captured packets: {captured_count}")
+        print(f"Processed packets: {self.total_packets}")
+
         print(
-            f"Captured packets: "
-            f"{captured_count}"
+            f"Total DNS predictions: "
+            f"{self.total_dns_predictions}"
         )
 
         print(
-            f"Processed packets: "
-            f"{self.total_packets}"
+            f"Benign predictions: "
+            f"{self.total_benign_predictions}"
         )
 
         print(
-            "DNS transactions: "
+            f"Malicious predictions: "
+            f"{self.total_malicious_predictions}"
+        )
+
+        print(
+            f"Retained detections: "
             f"{len(self.dns_detections)}"
         )
 
-        benign_count = sum(
-            1
-            for detection in self.dns_detections
-            if detection["prediction"] == 0
-        )
-
-        malicious_count = sum(
-            1
-            for detection in self.dns_detections
-            if detection["prediction"] == 1
+        print(
+            f"Expired pending DNS transactions: "
+            f"{self.dns_flow_tracker.expired_transaction_count}"
         )
 
         print(
-            f"Benign: "
-            f"{benign_count}"
+            f"Expired generic flows: "
+            f"{self.flow_tracker.expired_flow_count}"
         )
 
         print(
-            f"Malicious: "
-            f"{malicious_count}"
+            f"Evicted generic flows: "
+            f"{self.flow_tracker.evicted_flow_count}"
         )
 
         print("==========================================")
@@ -201,9 +224,7 @@ class DPIEngine:
         # Parse packet
         # ---------------------------------------------------------
 
-        packet = self.parser.parse(
-            raw_packet
-        )
+        packet = self.parser.parse(raw_packet)
 
         if packet is None:
             return
@@ -212,37 +233,27 @@ class DPIEngine:
         # Generic protocol detection
         # ---------------------------------------------------------
 
-        protocol = self.detector.detect(
-            packet
-        )
+        protocol = self.detector.detect(packet)
 
         packet.application_protocol = protocol
 
         if protocol:
-
             self.protocol_counts[protocol] = (
-                self.protocol_counts.get(
-                    protocol,
-                    0
-                ) + 1
+                self.protocol_counts.get(protocol, 0) + 1
             )
 
         # ---------------------------------------------------------
-        # Existing generic flow tracking
+        # Generic flow tracking
         # ---------------------------------------------------------
 
-        self.flow_tracker.process(
-            packet
-        )
+        self.flow_tracker.process(packet)
 
         # ---------------------------------------------------------
         # DNS flow tracking
         # ---------------------------------------------------------
 
-        transaction = (
-            self.dns_flow_tracker.process_packet(
-                packet
-            )
+        transaction = self.dns_flow_tracker.process_packet(
+            packet
         )
 
         # ---------------------------------------------------------
@@ -254,69 +265,53 @@ class DPIEngine:
             and transaction.response_received
         ):
 
-            prediction = (
-                self.dns_ml_pipeline.predict_transaction(
-                    transaction
-                )
+            prediction = self.dns_ml_pipeline.predict_transaction(
+                transaction
             )
 
-            # -----------------------------------------------------
-            # Store transaction metadata with prediction
-            # -----------------------------------------------------
-
+            # Add transaction metadata to the prediction.
             prediction["transaction_id"] = (
                 transaction.transaction_id
             )
 
-            prediction["query_name"] = (
-                transaction.query_name
-            )
+            prediction["query_name"] = transaction.query_name
+            prediction["client_ip"] = transaction.client_ip
+            prediction["client_port"] = transaction.client_port
+            prediction["server_ip"] = transaction.server_ip
+            prediction["server_port"] = transaction.server_port
+            prediction["response_time"] = transaction.response_time
 
-            prediction["client_ip"] = (
-                transaction.client_ip
-            )
+            # Update lifetime counters before trimming history.
+            self.total_dns_predictions += 1
 
-            prediction["client_port"] = (
-                transaction.client_port
-            )
+            if prediction["prediction"] == 0:
+                self.total_benign_predictions += 1
 
-            prediction["server_ip"] = (
-                transaction.server_ip
-            )
+            elif prediction["prediction"] == 1:
+                self.total_malicious_predictions += 1
 
-            prediction["server_port"] = (
-                transaction.server_port
-            )
+            # Retain only the most recent detection records.
+            self.dns_detections.append(prediction)
 
-            prediction["response_time"] = (
-                transaction.response_time
-            )
-
-            self.dns_detections.append(
-                prediction
-            )
+            if len(self.dns_detections) > self.max_detections:
+                del self.dns_detections[
+                    :-self.max_detections
+                ]
 
     # =============================================================
-    # SCAPY → RAW PACKET ADAPTER
+    # SCAPY TO RAW PACKET ADAPTER
     # =============================================================
 
     @staticmethod
-    def _scapy_to_raw_packet(
-        scapy_packet
-    ):
+    def _scapy_to_raw_packet(scapy_packet):
         """
-        Convert a Scapy packet into the project's
-        existing RawPacket structure.
+        Convert a Scapy packet into the project's RawPacket structure.
         """
 
-        data = bytes(
-            scapy_packet
-        )
+        data = bytes(scapy_packet)
 
         return RawPacket(
-            timestamp=float(
-                scapy_packet.time
-            ),
+            timestamp=float(scapy_packet.time),
             captured_length=len(data),
             original_length=len(data),
             data=data,
@@ -327,9 +322,7 @@ class DPIEngine:
     # =============================================================
 
     @staticmethod
-    def _print_live_detection(
-        detection
-    ):
+    def _print_live_detection(detection):
 
         print()
         print("========== DNS ML DETECTION ==========")
@@ -367,16 +360,15 @@ class DPIEngine:
 
     def report(self):
 
-        # =========================================================
-        # Existing generic flow report
-        # =========================================================
+        # ---------------------------------------------------------
+        # Generic flow report
+        # ---------------------------------------------------------
 
         flows = []
 
         for flow in self.flow_tracker.get_flows():
 
             flows.append({
-
                 "source": (
                     f"{flow.key.endpoint_a.ip}:"
                     f"{flow.key.endpoint_a.port}"
@@ -394,24 +386,13 @@ class DPIEngine:
                 ),
 
                 "packets": flow.packets,
-
                 "bytes": flow.bytes,
 
-                "forward_packets": (
-                    flow.forward_packets
-                ),
+                "forward_packets": flow.forward_packets,
+                "reverse_packets": flow.reverse_packets,
 
-                "reverse_packets": (
-                    flow.reverse_packets
-                ),
-
-                "forward_bytes": (
-                    flow.forward_bytes
-                ),
-
-                "reverse_bytes": (
-                    flow.reverse_bytes
-                ),
+                "forward_bytes": flow.forward_bytes,
+                "reverse_bytes": flow.reverse_bytes,
 
                 "duration": flow.duration,
 
@@ -419,41 +400,15 @@ class DPIEngine:
                     flow.packets_per_second
                 ),
 
-                "min_packet_length": (
-                    flow.min_packet_length
-                ),
-
-                "max_packet_length": (
-                    flow.max_packet_length
-                ),
+                "min_packet_length": flow.min_packet_length,
+                "max_packet_length": flow.max_packet_length,
             })
 
-        # =========================================================
-        # DNS ML summary
-        # =========================================================
-
-        malicious_count = sum(
-            1
-            for detection in self.dns_detections
-            if detection["prediction"] == 1
-        )
-
-        benign_count = sum(
-            1
-            for detection in self.dns_detections
-            if detection["prediction"] == 0
-        )
-
-        # =========================================================
+        # ---------------------------------------------------------
         # Complete report
-        # =========================================================
+        # ---------------------------------------------------------
 
         return {
-
-            # -----------------------------------------------------
-            # Generic DPI information
-            # -----------------------------------------------------
-
             "total_packets": self.total_packets,
 
             "protocol_counts": self.protocol_counts,
@@ -462,27 +417,26 @@ class DPIEngine:
 
             "flows": flows,
 
-            # -----------------------------------------------------
-            # DNS ML information
-            # -----------------------------------------------------
-
             "dns_ml": {
+                # Lifetime prediction count.
+                "total_transactions": self.total_dns_predictions,
 
-                "total_transactions": (
-                    len(self.dns_detections)
+                # Number of records still retained in memory.
+                "retained_detection_count": len(
+                    self.dns_detections
                 ),
 
+                # Lifetime class counts.
                 "benign_transactions": (
-                    benign_count
+                    self.total_benign_predictions
                 ),
 
                 "malicious_transactions": (
-                    malicious_count
+                    self.total_malicious_predictions
                 ),
 
-                "detections": (
-                    self.dns_detections
-                ),
+                # Recent retained detections.
+                "detections": self.dns_detections,
             },
         }
 
@@ -496,16 +450,21 @@ class DPIEngine:
 
         path.parent.mkdir(
             parents=True,
-            exist_ok=True
+            exist_ok=True,
         )
 
         with path.open(
             "w",
-            encoding="utf-8"
-        ) as f:
+            encoding="utf-8",
+        ) as file:
 
             json.dump(
                 self.report(),
-                f,
-                indent=2
+                file,
+                indent=2,
             )
+
+
+    
+
+
