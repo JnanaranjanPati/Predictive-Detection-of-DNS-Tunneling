@@ -11,7 +11,7 @@ PCAP_FILES = [
     Path("pcaps/tunneling_test.pcap"),
 ]
 
-REPETITIONS = 250
+REPETITIONS = 1500
 
 
 def collection_size(obj, attribute):
@@ -36,7 +36,7 @@ def main():
         for path in PCAP_FILES:
             engine.process_pcap(str(path))
 
-        if repetition % 25 == 0:
+        if repetition % 100 == 0:
             gc.collect()
             current, peak = tracemalloc.get_traced_memory()
 
