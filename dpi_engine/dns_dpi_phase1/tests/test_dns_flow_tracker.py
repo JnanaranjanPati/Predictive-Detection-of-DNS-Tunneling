@@ -124,19 +124,39 @@ def test_pending_transaction_is_not_expired_early():
 
 
 def test_completed_transaction_history_is_bounded():
+    reader = PcapReader("pcaps/test_traffic.pcap")
+    raw_packets = list(reader.packets())
+
+    parser = PacketParser()
     tracker = DNSFlowTracker(
         max_history=2,
         max_flow_history=10,
         max_tracked_flows=10,
     )
 
-    tracker.transactions.extend(["first", "second", "third"])
+    # Replay the real query/response packets three times.
+    # Each replay contains four completed DNS transactions.
+    for _ in range(3):
+        for raw_packet in raw_packets:
+            packet = parser.parse(raw_packet)
+            tracker.process_packet(packet)
 
-    # Simulate the same trimming rule used after a completion.
-    if len(tracker.transactions) > tracker.max_history:
-        del tracker.transactions[:-tracker.max_history]
+    transactions = tracker.get_transactions()
 
-    assert tracker.get_transactions() == ["second", "third"]
+    # Only the two newest completed transactions should remain.
+    assert len(transactions) == 2
+    assert [
+        transaction.transaction_id
+        for transaction in transactions
+    ] == [102, 103]
+
+    # Lifetime counters must include all 12 completions.
+    assert tracker.total_transactions_completed == 12
+    assert tracker.total_responses_matched == 12
+    assert tracker.total_queries_seen == 12
+
+    # Every query should have been matched and removed.
+    assert len(tracker.pending_transactions) == 0
 
 
 def test_per_flow_query_history_is_bounded():
